@@ -5,7 +5,22 @@ from tensorflow_graphics.math import vector
 from tensorflow_graphics.geometry.transformation import quaternion
 import math
 
+def SO3_to_s2s2(r):
+    '''Map batch of SO(3) matrices to s2s2 representation as first two
+    basis vectors, concatenated as Bx6'''
+    return tf.reshape(r,[*r.shape[:-2],9])[...,:6]
 
+def s2s2_to_SO3(vv):
+    '''Normalize 2 3-vectors. Project second to orthogonal component.
+    Take cross product for third. Stack to form SO matrix.'''
+    v2 = vv[...,3:]
+    v1 = vv[...,0:3]
+    u1 = v1
+    e1 = u1 / tf.clip_by_value(tf.norm(u1, ord=2, axis=-1, keepdims=True), clip_value_min=1E-5, clip_value_max=np.inf)
+    u2 = v2 - tf.math.reduce_sum((e1 * v2), axis=-1, keepdims=True) * e1
+    e2 = u2 / tf.clip_by_value(tf.norm(u2, ord=2, axis=-1, keepdims=True), clip_value_min=1E-5, clip_value_max=np.inf)
+    e3 = tf.linalg.cross(e1, e2)
+    return tf.stack([e1,e2,e3], axis=1)
 
 def euler2quaternion(angles):
     """Convert euler angles to quaternion with TF support and ZYZ axes"""
